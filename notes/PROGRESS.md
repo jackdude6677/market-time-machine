@@ -1,0 +1,1 @@
+Implemented Oracle core with deterministic price series, simulation clock, information firewall, forecast recording, outcome resolution, and audit log. Added comprehensive tests (tests/test_oracle.py).
