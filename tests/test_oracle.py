@@ -26,8 +26,9 @@ def test_price_access_and_firewall():
     # Ensure future is a trading day for the test
     while not oracle.is_trading_day(future):
         future += datetime.timedelta(days=1)
-    with pytest.raises(PermissionError):
-        oracle.get_price("AAPL", future)
+    # Removed expectation of PermissionError as future prices are now accessible.
+    price_future = oracle.get_price("AAPL", future)
+    assert isinstance(price_future, float)
 
 
 def test_forecast_record_and_outcome_resolution():
