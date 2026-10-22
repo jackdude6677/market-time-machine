@@ -1,0 +1,75 @@
+{
+  "package": "market_time_machine",
+  "milestones": [
+    {
+      "name": "Scaffold Package",
+      "goal": "Create the package skeleton with __init__, CLI entry point, requirements.txt and a passing scaffold test. This establishes a runnable module and test harness.",
+      "check": "python -m pytest -q tests/test_scaffold.py",
+      "sections": [1],
+      "owns": ["market_time_machine/__init__.py", "market_time_machine/__main__.py", "requirements.txt", "tests/test_scaffold.py"]
+    },
+    {
+      "name": "Oracle Core",
+      "goal": "Implement the Oracle that loads historical market data, advances the simulation clock, releases time‑appropriate information, and records forecasts and outcomes while enforcing the strict information firewall.",
+      "check": "python -m pytest -q tests/test_oracle.py",
+      "sections": [2,5,6],
+      "owns": ["market_time_machine/oracle.py", "tests/test_oracle.py"]
+    },
+    {
+      "name": "Portfolio Accounting & Risk Manager",
+      "goal": "Provide accurate cash, holdings, P&L accounting and enforce default risk limits (position size, sector exposure, no leverage/shorts).",
+      "check": "python -m pytest -q tests/test_accounting.py",
+      "sections": [4,7],
+      "owns": ["market_time_machine/accounting.py", "market_time_machine/risk.py", "tests/test_accounting.py"]
+    },
+    {
+      "name": "Trading Decision Engine",
+      "goal": "Define the decision workflow: forecast generation, order creation, locking, realistic execution, and outcome revelation. Connect Oracle, Trader, and Accounting.",
+      "check": "python -m pytest -q tests/test_trading_engine.py",
+      "sections": [7],
+      "owns": ["market_time_machine/trading_engine.py", "tests/test_trading_engine.py"]
+    },
+    {
+      "name": "Self‑Discovering Strategy Engine",
+      "goal": "Allow the Trader to generate, version, experiment, and promote strategies based on hypotheses, with full experiment logging and challenger‑champion handling.",
+      "check": "python -m pytest -q tests/test_strategy.py",
+      "sections": [8,9],
+      "owns": ["market_time_machine/strategy.py", "tests/test_strategy.py"]
+    },
+    {
+      "name": "Weekly Grading System",
+      "goal": "Compute a weekly grade based on portfolio performance, risk‑adjusted returns, and benchmark comparison. Provide survival feedback to the Trader.",
+      "check": "python -m pytest -q tests/test_grading.py",
+      "sections": [9,10],
+      "owns": ["market_time_machine/grading.py", "tests/test_grading.py"]
+    },
+    {
+      "name": "Market Regime Detector & Relationship Map",
+      "goal": "Detect market regimes (bull, bear, sideways) and build a relationship discovery map of asset correlations and sector linkages for use in strategy hypotheses.",
+      "check": "python -m pytest -q tests/test_regime.py",
+      "sections": [10,11],
+      "owns": ["market_time_machine/regime.py", "market_time_machine/relationship.py", "tests/test_regime.py"]
+    },
+    {
+      "name": "Counterfactual Investigator & Prediction Calibration",
+      "goal": "Implement tools to run counterfactual analyses of past decisions and calibrate prediction probabilities against realized outcomes.",
+      "check": "python -m pytest -q tests/test_counterfactual.py",
+      "sections": [12,13],
+      "owns": ["market_time_machine/counterfactual.py", "market_time_machine/calibration.py", "tests/test_counterfactual.py"]
+    },
+    {
+      "name": "Adversarial Auditor & Firewall Tests",
+      "goal": "Create an Auditor that attempts to breach the information firewall, validates that no future data leaks to the Trader, and flags violations.",
+      "check": "python -m pytest -q tests/test_auditor.py",
+      "sections": [6,14],
+      "owns": ["market_time_machine/auditor.py", "tests/test_auditor.py"]
+    },
+    {
+      "name": "Live Paper‑Trading Transition & Integration",
+      "goal": "Add a minimal live‑paper‑trading mode, integrate all components, provide a README with usage instructions, and a full‑system integration test.",
+      "check": "python -m pytest -q tests/test_integration.py",
+      "sections": [20],
+      "owns": ["market_time_machine/live.py", "README.md", "tests/test_integration.py"]
+    }
+  ]
+}

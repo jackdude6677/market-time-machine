@@ -1,0 +1,4 @@
+# Requirements for Market Time Machine package
+# Minimal dependencies for the scaffold milestone
+
+# No external dependencies required yet
