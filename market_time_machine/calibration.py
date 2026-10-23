@@ -36,8 +36,10 @@ class PredictionCalibration:
     def directional_accuracy(self) -> float:
         """Proportion of forecasts where the predicted direction matches the outcome.
 
-        The forecast may specify direction via a ``"prediction"`` key (string
-        ``"up"``/``"down"``) or a numeric value (positive = up, negative = down).
+        Handles string predictions ("up"/"down"), numeric predictions (positive/negative),
+        and dictionary predictions with a ``"prediction"`` key.  The special case
+        of a numeric prediction of ``0`` is treated as "flat" and matches an
+        outcome of ``0``.
         """
         records = self._all_forecasts()
         if not records:
@@ -47,14 +49,19 @@ class PredictionCalibration:
         for rec in records:
             if rec.outcome is None:
                 continue
-            # Determine predicted direction
             pred = rec.prediction
+            # Determine predicted direction
             if isinstance(pred, dict) and "prediction" in pred:
                 pred_dir = str(pred["prediction"]).lower()
             elif isinstance(pred, str):
                 pred_dir = pred.lower()
             elif isinstance(pred, (int, float)):
-                pred_dir = "up" if pred > 0 else "down"
+                if pred > 0:
+                    pred_dir = "up"
+                elif pred < 0:
+                    pred_dir = "down"
+                else:
+                    pred_dir = "flat"
             else:
                 continue
             actual_dir = "up" if rec.outcome > 0 else "down" if rec.outcome < 0 else "flat"

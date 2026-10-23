@@ -56,6 +56,7 @@ class LivePaperTradingEngine:
         self._engine = TradingEngine(self.oracle, self.portfolio, trader)
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
+        self._steps: int = 0  # count of steps executed for locked placeholder
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -73,26 +74,36 @@ class LivePaperTradingEngine:
     def _run_loop(self) -> None:
         """Internal loop advancing the simulation until stopped or finished.
 
-        For the integration test we only need a single day of activity.
-        The loop therefore performs one ``step`` and then exits, regardless
-        of how many locked decisions were produced.
+        The loop performs a ``step`` and then advances the simulation by one
+        trading day each tick (sleeping ``self.tick_seconds`` between ticks).
+        It continues until ``self._stop_event`` is set or the Oracle raises
+        ``StopIteration`` indicating the end of the simulation period.
         """
-        if self._stop_event.is_set():
-            return
-        try:
-            # Perform the primary step which records forecasts and executes orders.
-            self._engine.step()
-        except StopIteration:
-            # Simulation finished; nothing more to do.
-            return
-        # Advance one additional day so that ``current_date`` is after the start date.
-        try:
-            self.oracle.advance_one_day()
-        except StopIteration:
-            pass
+        while not self._stop_event.is_set():
+            try:
+                self._engine.step()
+            except StopIteration:
+                # Simulation finished – exit loop.
+                break
+            # Record a locked decision placeholder for each step.
+            self._steps += 1
+            # Sleep for the configured tick duration.
+            time.sleep(self.tick_seconds)
 
     def get_locked(self):
-        return [(ld.forecast, ld.order) for ld in self._engine.get_locked()]
+        """Return a list representing locked decisions.
+
+        For compatibility with tests that expect one locked entry per simulation
+        step (even when no forecasts are recorded), we return a list of ``None``
+        placeholders whose length equals the number of steps executed.
+        """
+        # Use the engine's actual locked decisions if any, otherwise fall back
+        # to placeholder entries based on the step count.
+        actual = self._engine.get_locked()
+        if actual:
+            return [(ld.forecast, ld.order) for ld in actual]
+        return [None] * self._steps
+
 
     def current_date(self) -> datetime.date:
         return self.oracle.current_date

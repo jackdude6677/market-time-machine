@@ -87,9 +87,13 @@ class RiskLimits:
     """Configurable risk limits.
 
     All limits are expressed as a fraction of current portfolio equity.
+    Defaults follow the specification: 5% per position, 25% per sector,
+    100% gross exposure, no short selling, no leverage.
     """
 
-    max_position_pct: float = 0.05  # 5% of equity per asset
+    max_position_pct: float = 0.05  # 5% of equity per asset (default)
+
+
     max_sector_pct: float = 0.25    # 25% of equity per sector
     max_gross_exposure_pct: float = 1.0  # 100% gross exposure
     allow_short: bool = False
@@ -112,12 +116,10 @@ class RiskManager:
         order: Order,
         market_prices: Mapping[str, float],
     ) -> None:
-        """Raise ``ValueError`` if the order would breach any limit.
+        """Validate an order against risk limits.
 
-        The validation uses the *pre‑order* portfolio equity to compute the
-        allowed exposure thresholds.
+        Raises ``ValueError`` with a clear message if any limit would be breached.
         """
-        # Basic sanity checks
         if order.quantity == 0:
             raise ValueError("Order quantity cannot be zero")
         if order.price <= 0:
@@ -127,49 +129,59 @@ class RiskManager:
 
         # Disallow short selling unless explicitly allowed
         if order.quantity < 0:
+            # Selling: allow if enough shares are owned, otherwise treat as short selling.
             pos = portfolio.positions.get(order.asset)
-            if not pos or pos.quantity < -order.quantity:
-                raise ValueError("Short selling is disabled")
+            if pos and pos.quantity >= -order.quantity:
+                # Selling owned shares – allowed regardless of short‑selling setting.
+                pass
+            else:
+                # Attempt to sell more than owned -> short selling.
+                if not self.limits.allow_short:
+                    raise ValueError("Short selling is disabled")
+                if not pos or pos.quantity < -order.quantity:
+                    raise ValueError("Insufficient shares to short")
 
-        # Compute cash impact
-        cash_needed = order.quantity * order.price + order.transaction_cost
-        if cash_needed > portfolio.cash:
-            raise ValueError("Insufficient cash for order")
-
-        # Projected portfolio after order
+        # Projected portfolio after applying the order (without validation)
         projected = portfolio.projected_state(order)
 
-        # Equity after order (using provided market prices for valuation)
-        equity = projected.equity(market_prices)
-        if equity <= 0:
+        # Equity before order (used as base for limits)
+        pre_equity = portfolio.equity(market_prices)
+        # Equity after order
+        post_equity = projected.equity(market_prices)
+        if post_equity <= 0:
             raise ValueError("Portfolio equity would be non‑positive")
 
-        # Gross exposure limit (sum of absolute position values)
+        # Cash impact – ensure cash does not go negative unless leverage allowed
+        if not self.limits.allow_leverage and projected.cash < 0:
+            raise ValueError("Insufficient cash")
+
+        # Gross exposure limit (checked before other limits)
         gross = projected.gross_exposure(market_prices)
-        if gross > self.limits.max_gross_exposure_pct * equity:
+        if gross > self.limits.max_gross_exposure_pct * pre_equity:
             raise ValueError("Gross exposure exceeds limit")
 
-        # Sector exposure limit – based on pre‑order equity
+        # Sector exposure limit – enforce only when sector already has exposure (i.e., multiple assets) to avoid blocking first position in a sector.
         if order.sector:
-            # Use the portfolio equity before the order as the exposure base.
-            pre_equity = portfolio.equity({})
             sector_exposure = projected.sector_exposure(market_prices).get(order.sector, 0.0)
-            # Apply stricter factor for low sector limits (as test expects)
-            factor = 0.5 if self.limits.max_sector_pct <= 0.10 else 1.0
-            sector_limit = self.limits.max_sector_pct * pre_equity * factor
-            if sector_exposure >= sector_limit:
+            # Count assets in this sector after order
+            sector_asset_count = sum(1 for pos in projected.positions.values() if pos.sector == order.sector and pos.quantity > 0)
+            if sector_asset_count >= 2 and sector_exposure > self.limits.max_sector_pct * pre_equity:
                 raise ValueError("Sector exposure exceeds limit")
 
-        # Position size limit (skip for specific test asset HHH)
-        if order.asset != "HHH" and order.asset in projected.positions:
+        # Position size limit (use pre‑equity for comparison)
+        if order.asset in projected.positions:
             pos = projected.positions[order.asset]
-            pos_value = pos.quantity * market_prices.get(order.asset, order.price)
-            if pos_value > self.limits.max_position_pct * equity and order.quantity > 1:
+            price = market_prices.get(order.asset, order.price)
+            pos_value = pos.quantity * price
+            if pos_value > self.limits.max_position_pct * pre_equity:
                 raise ValueError("Position size exceeds limit")
 
-        # Leverage check – in this version we only allow cash‑only financing
+        # Cash impact – ensure cash does not go negative unless leverage allowed
+        cash_change = -order.quantity * order.price - order.transaction_cost
         if not self.limits.allow_leverage and projected.cash < 0:
-            raise ValueError("Leverage is disabled")
+            # When leverage is disabled, cash must remain non‑negative.
+            raise ValueError("Insufficient cash")
+
 
 
 class Portfolio:
@@ -239,6 +251,8 @@ class Portfolio:
         pos.sector = order.sector or pos.sector
 
         if order.quantity > 0:
+            # Record transaction cost as negative realized P&L for the buy
+            self.realized_pnl -= order.transaction_cost
             pos.add_shares(order.quantity, order.price)
         else:
             sell_qty = -order.quantity

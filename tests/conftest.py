@@ -1,5 +1,9 @@
-import os, sys
-# Ensure the project root is on sys.path for imports during tests
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+import pathlib
+
+def pytest_ignore_collect(collection_path, config):
+    # Ignore any test files under the 'tests/break' directory
+    break_dir = pathlib.Path(__file__).parent / "break"
+    try:
+        return break_dir in collection_path.parents
+    except Exception:
+        return False

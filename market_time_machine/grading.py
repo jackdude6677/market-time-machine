@@ -157,11 +157,12 @@ class WeeklyGrader:
         else:
             std = statistics.stdev(daily_returns)
         if std <= 0:
-            ratio = 1.0
+            ratio = 0.0
         else:
             ratio = net_return / std
         ratio = max(0.0, min(ratio, 1.0))
         risk_points = ratio * 20.0
+
 
         # Drawdown points (0% drawdown => 20, 50% => 0)
         max_dd = self._max_drawdown(equity_series)

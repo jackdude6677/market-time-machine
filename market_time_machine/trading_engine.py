@@ -28,7 +28,7 @@ from .accounting import Order, Portfolio
 TraderFunc = Callable[[Oracle, datetime.date], Tuple[List[Tuple[str, Any]], List[Order]]]
 
 
-@dataclass
+@dataclass(frozen=True)
 class LockedDecision:
     """Immutable record of a forecast and its associated order.
 
@@ -70,57 +70,49 @@ class TradingEngine:
     def step(self) -> None:
         """Execute one full trading session.
 
-        The method follows the nine steps described in the specification:
-
-        1. Advance time.
-        2. Release information (price data up to the current date).
-        3. Trader analyses the market.
-        4. Generate forecasts.
-        5. Select actions (orders).
-        6. Lock the decision.
-        7. Execute the orders.
-        8. Reveal outcomes for any forecasts whose outcome is now known.
-        9. Score and learn (store outcomes for later inspection).
+        Updated to validate orders *before* recording forecasts to ensure
+        atomicity: if any order fails risk validation, the step aborts
+        without altering the oracle or locked decisions.
         """
-
         # Step 1 – advance simulation clock
         try:
             self.oracle.advance_one_day()
         except StopIteration:
-            # No more simulation days – nothing to do
             return
 
         current_date = self.oracle.current_date
 
-        # Step 2 – information release (prices up to current_date are now
-        # available via ``oracle.get_price``).  No explicit action required.
-
         # Step 3‑5 – trader produces forecasts and orders
         forecasts, orders = self.trader(self.oracle, current_date)
 
-        # Step 4 – record forecasts in the oracle (must be on or before current date)
+        # Validate all orders first (without applying) to enforce risk limits atomically
+        market_prices = {order.asset: order.price for order in orders if order is not None}
+        for order in orders:
+            if order is None:
+                continue
+            # This will raise ValueError if the order violates limits
+            self.portfolio.risk_manager.validate_order(self.portfolio, order, market_prices)
+
+        # If validation passes, proceed to record forecasts and lock decisions
         locked_today: List[LockedDecision] = []
         for ticker, prediction in forecasts:
             self.oracle.record_forecast(ticker, current_date, prediction)
-            # Retrieve the stored record for locking
             record = next(
                 fr for fr in self.oracle.audit_log()
                 if fr.ticker == ticker and fr.forecast_date == current_date
             )
-            # Find matching order (may be None) – we pair by ticker
             order = next((o for o in orders if o.asset == ticker), None)
             locked_today.append(LockedDecision(forecast=record, order=order))
 
-        # Step 6 – lock decisions (already immutable via dataclass)
         self.locked.extend(locked_today)
 
-        # Step 7 – execute orders
+        # Step 7 – execute orders (now safe, as they were validated)
         for order in orders:
             if order is None:
                 continue
             self.portfolio.apply_order(order, validate=False)
 
-        # Step 8 – reveal outcomes (oracle resolves automatically on advance)
+        # Step 8 – reveal outcomes (handled internally by Oracle on advance)
         for ld in locked_today:
             try:
                 _ = self.oracle.get_outcome(ld.forecast.ticker, ld.forecast.forecast_date)

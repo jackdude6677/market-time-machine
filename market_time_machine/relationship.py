@@ -86,7 +86,8 @@ class RelationshipMap:
 
         If a relationship with the same src, dst and type exists, its metadata
         is merged (timestamps are extended, numeric fields overwritten with the
-        latest call).
+        latest call). Zero values are considered valid and should overwrite
+        existing values when explicitly provided.
         """
         src = self.add_node(src_id, "unknown")
         dst = self.add_node(dst_id, "unknown")
@@ -94,8 +95,8 @@ class RelationshipMap:
             if edge.src == src and edge.dst == dst and edge.rel_type == rel_type:
                 # merge metadata
                 edge.evidence = evidence or edge.evidence
-                edge.strength = strength or edge.strength
-                edge.confidence = confidence or edge.confidence
+                edge.strength = strength if strength is not None else edge.strength
+                edge.confidence = confidence if confidence is not None else edge.confidence
                 edge.market_conditions = market_conditions or edge.market_conditions
                 edge.predictive_performance = (
                     predictive_performance or edge.predictive_performance
@@ -118,6 +119,7 @@ class RelationshipMap:
         )
         self._edges.append(edge)
         return edge
+
 
     def get_relationships(
         self,

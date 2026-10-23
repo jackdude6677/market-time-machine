@@ -60,16 +60,14 @@ class Auditor:
         """
         future_date = self._next_trading_day(oracle.current_date, oracle)
         try:
-            # Use a dummy ticker – the Oracle ignores the ticker in its
-            # deterministic implementation.
             oracle.get_price("FAKE", future_date)
         except PermissionError:
             # Correct behaviour – no leak.
             return
-        except Exception:
-            # Any other exception is unexpected; treat it as a leak for safety.
+        except Exception as exc:
+            # Record the actual exception type name.
             self.violations.append(
-                f"Unexpected exception when probing future price for {future_date}: {type(Exception).__name__}"
+                f"Future price leak detected: unexpected exception {type(exc).__name__}"
             )
             return
         else:
