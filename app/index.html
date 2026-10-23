@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head><!--jarvis-pwa--><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#0e2840"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Market Time Machine – Control UI</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="header">
+    <h1>Market Time Machine</h1>
+    <button id="theme-toggle" aria-label="Toggle dark mode">🌙</button>
+  </header>
+  <main class="content">
+    <section class="card" id="status">
+      <h2>Status</h2>
+      <p id="capital">Capital: $‑‑</p>
+      <p id="positions">Positions: ‑‑</p>
+    </section>
+    <section class="card" id="weekly-grades">
+      <h2>Weekly Grades</h2>
+      <ul id="grades-list"></ul>
+    </section>
+    <section class="card" id="strategies">
+      <h2>Strategies</h2>
+      <ul id="strategies-list"></ul>
+    </section>
+    <section class="card" id="relationships">
+      <h2>Relationships</h2>
+      <ul id="relationships-list"></ul>
+    </section>
+    <section class="card" id="auditor">
+      <h2>Auditor Findings</h2>
+      <ul id="auditor-list"></ul>
+    </section>
+    <section class="card" id="controls">
+      <h2>Controls (copy‑paste commands)</h2>
+      <pre id="commands" class="code-block"></pre>
+    </section>
+  </main>
+  <script src="script.js"></script>
+<script>/*jarvis-pwa*/if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))</script></body>
+</html>
