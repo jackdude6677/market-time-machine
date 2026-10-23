@@ -2,3 +2,4 @@
 # Minimal dependencies for the scaffold milestone
 
 # No external dependencies required yet
+numpy
